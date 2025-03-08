@@ -2,27 +2,38 @@ name: Bus Ticket Monitor
 
 on:
   schedule:
-    - cron: '*/1 * * * *'  # Runs every 5 minutes
-  workflow_dispatch:  # Allows manual run
+    - cron: "*/1 * * * *"  # Run every 1 minute
+  workflow_dispatch:  # Allows manual trigger
 
 jobs:
-  monitor:
+  monitor_bus_tickets:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set Up Python
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: "3.9"
 
       - name: Install Dependencies
-        run: pip install requests pushbullet.py
+        run: |
+          pip install -r requirements.txt
+          pip install pushbullet.py requests
 
-      - name: Run Ticket Monitor
-        env:
-          PUSHBULLET_API_KEY: ${{ secrets.PUSHBULLET_API_KEY }}
+      - name: Download Previous Cache (if exists)
+        uses: actions/download-artifact@v3
+        with:
+          name: ticket-cache
+          path: ./  # Download to current directory
 
-        run: python main.py
+      - name: Run Ticket Checker
+        run: python main.py  # Run the script
+
+      - name: Upload Updated Cache
+        uses: actions/upload-artifact@v3
+        with:
+          name: ticket-cache
+          path: ticket_cache.json  # Save updated cache after job runs
