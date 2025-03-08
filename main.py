@@ -8,9 +8,9 @@ from pushbullet import Pushbullet
 # Configure these variables
 API_URL = "https://api.bdtickets.com:20102/v1/coaches/search"
 CHECK_INTERVAL_MINUTES = 1  
-PUSHBULLET_API_KEY = os.getenv("PUSHBULLET_API_KEY")
-TRAVEL_DATE = "2025-03-12"
-RETURN_DATE = "2025-03-13"
+PUSHBULLET_API_KEY = "o.3aXS4A9KBUIqZ63lF3fCXq4EvOTs4DlY"  
+TRAVEL_DATE = "2025-03-12"  # Onward journey
+RETURN_DATE = "2025-03-13"  # Return journey
 
 # TRAVEL_DATE = "2025-03-27"
 # RETURN_DATE = "2025-04-05"
@@ -117,24 +117,33 @@ def get_new_tickets(current_tickets, cached_tickets):
 
 # Main loop
 def main():
-    log_message("Bus ticket monitor started (GitHub Actions)")
+    log_message("Bus ticket monitor started")
+    
+    while True:
+        onward_tickets, onward_cache = check_tickets(TRAVEL_DATE, ONWARD_ROUTES, "Onward")
+        return_tickets, return_cache = check_tickets(RETURN_DATE, RETURN_ROUTES, "Return")
 
-    onward_tickets, onward_cache = check_tickets(TRAVEL_DATE, ONWARD_ROUTES, "Onward")
-    return_tickets, return_cache = check_tickets(RETURN_DATE, RETURN_ROUTES, "Return")
+        # Load cached tickets separately for onward and return
+        cached_onward_tickets, cached_return_tickets = load_ticket_cache()
 
-    cached_onward_tickets, cached_return_tickets = load_ticket_cache()
+        # Find new onward tickets
+        new_onward_tickets = get_new_tickets(onward_tickets, cached_onward_tickets)
+        if new_onward_tickets:
+            log_message(f"Found {len(new_onward_tickets)} NEW onward buses to notify about")
+            send_notification(new_onward_tickets, "Onward")
 
-    new_onward_tickets = get_new_tickets(onward_tickets, cached_onward_tickets)
-    if new_onward_tickets:
-        send_notification(new_onward_tickets, "Onward")
+        # Find new return tickets
+        new_return_tickets = get_new_tickets(return_tickets, cached_return_tickets)
+        if new_return_tickets:
+            log_message(f"Found {len(new_return_tickets)} NEW return buses to notify about")
+            send_notification(new_return_tickets, "Return")
 
-    new_return_tickets = get_new_tickets(return_tickets, cached_return_tickets)
-    if new_return_tickets:
-        send_notification(new_return_tickets, "Return")
+        # Save updated caches
+        save_ticket_cache(onward_cache, return_cache)
 
-    save_ticket_cache(onward_cache, return_cache)
-    log_message("Job completed successfully!")
-
+        log_message(f"Sleeping for {CHECK_INTERVAL_MINUTES} minutes until next check")
+        log_message("======================")
+        time.sleep(CHECK_INTERVAL_MINUTES * 60)
 
 if __name__ == "__main__":
     main()
