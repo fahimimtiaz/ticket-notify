@@ -23,11 +23,21 @@ jobs:
           pip install -r requirements.txt
           pip install pushbullet.py requests
 
+      - name: Check for Previous Cache
+        run: |
+          if [ ! -f ticket_cache.json ]; then
+            echo "No ticket cache found, initializing..."
+            touch ticket_cache.json
+          else
+            echo "Ticket cache found."
+          fi
+
       - name: Download Previous Cache (if exists)
         uses: actions/download-artifact@v4
         with:
           name: ticket-cache
           path: ./  # Download to current directory
+        continue-on-error: true  # Continue even if no artifact exists
 
       - name: Run Ticket Checker
         run: python main.py  # Run the script
