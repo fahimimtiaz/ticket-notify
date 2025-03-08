@@ -1,0 +1,28 @@
+name: Bus Ticket Monitor
+
+on:
+  schedule:
+    - cron: '*/1 * * * *'  # Runs every 5 minutes
+  workflow_dispatch:  # Allows manual run
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: pip install requests pushbullet.py
+
+      - name: Run Ticket Monitor
+        env:
+          PUSHBULLET_API_KEY: ${{ secrets.PUSHBULLET_API_KEY }}
+
+        run: python main.py
