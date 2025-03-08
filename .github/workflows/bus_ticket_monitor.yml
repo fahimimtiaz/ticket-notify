@@ -9,6 +9,9 @@ jobs:
   monitor_bus_tickets:
     runs-on: ubuntu-latest
 
+    env:
+      PUSHBULLET_API_KEY: ${{ secrets.PUSHBULLET_API_KEY }}  # Set Pushbullet API key as environment variable
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
