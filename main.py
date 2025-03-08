@@ -15,6 +15,7 @@ RETURN_DATE = "2025-03-13"  # Return journey
 # TRAVEL_DATE = "2025-03-27"
 # RETURN_DATE = "2025-04-05"
 
+
 ONWARD_ROUTES = ["dhaka-to-rajshahi", "dhaka-to-chapainawabganj"]
 RETURN_ROUTES = ["rajshahi-to-dhaka", "chapainawabganj-to-dhaka"]
 
@@ -68,7 +69,7 @@ def check_tickets(travel_date, routes, journey_type):
     return found_tickets, tickets_for_cache
 
 # Function to send notifications
-def send_notification(tickets):
+def send_notification(tickets, journey_type):
     if not tickets:
         return
     
@@ -76,7 +77,7 @@ def send_notification(tickets):
     unique_companies = set(ticket['company'] for ticket in tickets)
     journey_types = set(ticket['journey_type'] for ticket in tickets)
 
-    title = "🚌 Bus Availability Update"
+    title = f"🚌 {journey_type} Bus Availability Update"
     body = f"Available Buses: {len(tickets)}\n"
     body += f"Companies: {', '.join(unique_companies)}\n"
     body += f"Routes: {', '.join(unique_routes)}\n"
@@ -89,27 +90,30 @@ def send_notification(tickets):
         log_message(f"Failed to send notification: {str(e)}")
 
 # Save previously found tickets to avoid duplicate notifications
-def save_ticket_cache(tickets):
+def save_ticket_cache(onward_tickets, return_tickets):
+    cache_data = {
+        "onward": onward_tickets,
+        "return": return_tickets
+    }
     with open("ticket_cache.json", "w") as f:
-        json.dump(tickets, f)
+        json.dump(cache_data, f)
 
 # Load previously found tickets
 def load_ticket_cache():
     try:
         with open("ticket_cache.json", "r") as f:
-            return json.load(f)
+            data = json.load(f)
+            return data.get("onward", []), data.get("return", [])
     except (FileNotFoundError, json.JSONDecodeError):
-        return []
+        return [], []
 
 # Check if we have new tickets we haven't notified about
 def get_new_tickets(current_tickets, cached_tickets):
     if not cached_tickets:
         return current_tickets
     
-    cached_keys = {f"{ticket['coach_no']}" for ticket in cached_tickets}
-    new_tickets = [ticket for ticket in current_tickets if f"{ticket['coach_no']}" not in cached_keys]
-    
-    return new_tickets
+    cached_keys = {ticket['coach_no'] for ticket in cached_tickets}
+    return [ticket for ticket in current_tickets if ticket['coach_no'] not in cached_keys]
 
 # Main loop
 def main():
@@ -119,23 +123,24 @@ def main():
         onward_tickets, onward_cache = check_tickets(TRAVEL_DATE, ONWARD_ROUTES, "Onward")
         return_tickets, return_cache = check_tickets(RETURN_DATE, RETURN_ROUTES, "Return")
 
-        all_tickets = onward_tickets + return_tickets
-        all_cache = onward_cache + return_cache
+        # Load cached tickets separately for onward and return
+        cached_onward_tickets, cached_return_tickets = load_ticket_cache()
 
-        if all_tickets:
-            log_message(f"Found {len(all_tickets)} available buses")
-            cached_tickets = load_ticket_cache()
-            new_tickets = get_new_tickets(all_tickets, cached_tickets)
-            
-            if new_tickets:
-                log_message(f"Found {len(new_tickets)} NEW buses to notify about")
-                send_notification(new_tickets)
-                save_ticket_cache(all_cache)
-            else:
-                log_message("No new buses found since last check")
-        else:
-            log_message("No available buses found")
-        
+        # Find new onward tickets
+        new_onward_tickets = get_new_tickets(onward_tickets, cached_onward_tickets)
+        if new_onward_tickets:
+            log_message(f"Found {len(new_onward_tickets)} NEW onward buses to notify about")
+            send_notification(new_onward_tickets, "Onward")
+
+        # Find new return tickets
+        new_return_tickets = get_new_tickets(return_tickets, cached_return_tickets)
+        if new_return_tickets:
+            log_message(f"Found {len(new_return_tickets)} NEW return buses to notify about")
+            send_notification(new_return_tickets, "Return")
+
+        # Save updated caches
+        save_ticket_cache(onward_cache, return_cache)
+
         log_message(f"Sleeping for {CHECK_INTERVAL_MINUTES} minutes until next check")
         log_message("======================")
         time.sleep(CHECK_INTERVAL_MINUTES * 60)
