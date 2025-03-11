@@ -8,7 +8,7 @@ from pushbullet import Pushbullet
 # Configure these variables
 API_URL = "https://api.bdtickets.com:20102/v1/coaches/search"
 CHECK_INTERVAL_MINUTES = 1  
-PUSHBULLET_API_KEY = "o.3aXS4A9KBUIqZ63lF3fCXq4EvOTs4DlY"  
+PUSHBULLET_API_KEY = os.getenv("PUSHBULLET_API_KEY")
 TRAVEL_DATE = "2025-03-12"  # Onward journey
 RETURN_DATE = "2025-03-13"  # Return journey
 
