@@ -1,0 +1,25 @@
+name: Bus Ticket Monitor
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # Run every 15 minutes
+
+jobs:
+  check-tickets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: pip install requests python-dotenv pushbullet.py
+      - name: Run monitor script
+        env:
+          PUSHBULLET_API_KEY: ${{ secrets.PUSHBULLET_API_KEY }}
+          TRAVEL_DATE: ${{ secrets.TRAVEL_DATE }}
+          RETURN_DATE: ${{ secrets.RETURN_DATE }}
+          SEARCH_ONWORD: 'True'
+          SEARCH_RETURN: 'True'
+        run: python main.py
