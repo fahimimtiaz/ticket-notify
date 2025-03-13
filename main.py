@@ -10,7 +10,7 @@ load_dotenv()
 
 # Configure from environment variables
 API_URL = "https://api.bdtickets.com:20102/v1/coaches/search"
-CHECK_INTERVAL_MINUTES = 1
+CHECK_INTERVAL_MINUTES = 5
 PUSHBULLET_API_KEY = os.getenv("PUSHBULLET_API_KEY")
 TRAVEL_DATE = os.getenv("TRAVEL_DATE")
 RETURN_DATE = os.getenv("RETURN_DATE")
@@ -55,7 +55,7 @@ def check_tickets(travel_date, routes, journey_type):
                 for coach in data["data"]:
                     company_name = coach.get("companyName", "")
                     coach_no = coach.get("coachNo", "")
-                    if company_name in TARGET_COMPANIES and coach.get("availableSeats", 0) > 0:
+                    if company_name in TARGET_COMPANIES:
                         found_tickets.append({
                             "company": company_name,
                             "coach_no": coach_no,
