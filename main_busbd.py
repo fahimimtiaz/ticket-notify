@@ -21,7 +21,7 @@ TO_ID = 14
 FROM_IDS = [55, 9]  # 55 for Rajshahi, 9 for Chapai Nawabganj
 
 # Target companies
-TARGET_COMPANIES = ["National Travels", "Desh Travels", "Grameen Travels", "KTC Hanif", "Hanif Enterprise"]
+TARGET_COMPANIES = ["National Travels", "Desh Travels", "Grameen Travels", "KTC Hanif", "Hanif Enterprise", "Shyamoli N.R Travels"]
 
 # Initialize Pushbullet
 pb = Pushbullet(PUSHBULLET_API_KEY)
@@ -87,12 +87,12 @@ def send_notification(tickets, journey_type):
         log_message(f"Failed to send notification: {str(e)}")
 
 def save_ticket_cache(tickets):
-    with open("ticket_cache.json", "w") as f:
+    with open("ticket_cache_busbd.json", "w") as f:
         json.dump(tickets, f)
 
 def load_ticket_cache():
     try:
-        with open("ticket_cache.json", "r") as f:
+        with open("ticket_cache_busbd.json", "r") as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return []

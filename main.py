@@ -22,7 +22,7 @@ SEARCH_RETURN = os.getenv("SEARCH_RETURN", "True").lower() == "true"
 ONWARD_ROUTES = ["dhaka-to-rajshahi", "dhaka-to-chapainawabganj"]
 RETURN_ROUTES = ["rajshahi-to-dhaka", "chapainawabganj-to-dhaka"]
 
-TARGET_COMPANIES = ["National Travels", "Desh Travels", "Grameen Travels", "KTC Hanif", "Hanif Enterprise"]
+TARGET_COMPANIES = ["National Travels", "Desh Travels", "Grameen Travels", "KTC Hanif", "Hanif Enterprise", "Shyamoli N.R Travels"]
 
 
 # Initialize Pushbullet
