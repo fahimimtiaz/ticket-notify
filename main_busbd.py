@@ -4,26 +4,24 @@ import os
 from datetime import datetime
 import json
 from pushbullet import Pushbullet
-
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # Configure from environment variables
-API_URL = "https://api.bdtickets.com:20102/v1/coaches/search"
+API_URL = "https://api.busbd.com.bd/api/v2/searchlist"
 CHECK_INTERVAL_MINUTES = 3
 PUSHBULLET_API_KEY = os.getenv("PUSHBULLET_API_KEY")
-TRAVEL_DATE = os.getenv("TRAVEL_DATE")
 RETURN_DATE = os.getenv("RETURN_DATE")
 
-# Convert SEARCH_ONWORD and SEARCH_RETURN to Boolean
-SEARCH_ONWORD = os.getenv("SEARCH_ONWORD", "True").lower() == "true"
-SEARCH_RETURN = os.getenv("SEARCH_RETURN", "True").lower() == "true"
+# Fixed toid for Dhaka
+TO_ID = 14
 
-ONWARD_ROUTES = ["dhaka-to-rajshahi", "dhaka-to-chapainawabganj"]
-RETURN_ROUTES = ["rajshahi-to-dhaka", "chapainawabganj-to-dhaka"]
+# List of fromid for Rajshahi and Chapai Nawabganj
+FROM_IDS = [55, 9]  # 55 for Rajshahi, 9 for Chapai Nawabganj
 
+# Target companies
 TARGET_COMPANIES = ["National Travels", "Desh Travels", "Grameen Travels", "KTC Hanif", "Hanif Enterprise"]
-
 
 # Initialize Pushbullet
 pb = Pushbullet(PUSHBULLET_API_KEY)
@@ -33,17 +31,18 @@ def log_message(message):
     log_entry = f"[{timestamp}] {message}"
     print(log_entry)
 
-def check_tickets(travel_date, routes, journey_type):
-    log_message(f"Checking {journey_type} tickets for {travel_date}...")
+def check_tickets(travel_date, from_ids, to_id):
+    log_message(f"Checking return tickets for {travel_date}...")
     found_tickets = []
     tickets_for_cache = []
 
-    for route in routes:
-        log_message(f"Checking route: {route}")
+    for from_id in from_ids:
+        log_message(f"Checking from_id: {from_id}")
         payload = {
-            "date": travel_date,
-            "identifier": route,
-            "structureType": "BUS"
+            "jrdate": travel_date,
+            "fromid": from_id,
+            "toid": to_id,
+            "coach_type": None
         }
 
         try:
@@ -51,21 +50,21 @@ def check_tickets(travel_date, routes, journey_type):
             response.raise_for_status()
             data = response.json()
 
-            if data.get("data"):
-                for coach in data["data"]:
-                    company_name = coach.get("companyName", "")
-                    coach_no = coach.get("coachNo", "")
+            if data.get("data") and data["data"].get("coaches"):
+                for coach in data["data"]["coaches"]:
+                    company_name = coach.get("company_name", "")
+                    coach_no = coach.get("coach_no", "")
                     if company_name in TARGET_COMPANIES:
                         found_tickets.append({
                             "company": company_name,
                             "coach_no": coach_no,
-                            "route": route,
-                            "journey_type": journey_type
+                            "route": f"{coach.get('route_name', '')}",
+                            "journey_type": "Return"
                         })
                         tickets_for_cache.append({"coach_no": coach_no})
 
         except Exception as e:
-            log_message(f"Error checking {route}: {str(e)}")
+            log_message(f"Error checking from_id {from_id}: {str(e)}")
 
     return found_tickets, tickets_for_cache
 
@@ -75,13 +74,11 @@ def send_notification(tickets, journey_type):
 
     unique_routes = set(ticket['route'] for ticket in tickets)
     unique_companies = set(ticket['company'] for ticket in tickets)
-    journey_types = set(ticket['journey_type'] for ticket in tickets)
 
     title = f"🚌 {journey_type} Bus Availability Update"
     body = f"Available Buses: {len(tickets)}\n"
     body += f"Companies: {', '.join(unique_companies)}\n"
-    body += f"Routes: {', '.join(unique_routes)}\n"
-    body += f"Journey Types: {', '.join(journey_types)}"
+    body += f"Routes: {', '.join(unique_routes)}"
 
     try:
         pb.push_note(title, body)
@@ -89,21 +86,16 @@ def send_notification(tickets, journey_type):
     except Exception as e:
         log_message(f"Failed to send notification: {str(e)}")
 
-def save_ticket_cache(onward_tickets, return_tickets):
-    cache_data = {
-        "onward": onward_tickets,
-        "return": return_tickets
-    }
+def save_ticket_cache(tickets):
     with open("ticket_cache.json", "w") as f:
-        json.dump(cache_data, f)
+        json.dump(tickets, f)
 
 def load_ticket_cache():
     try:
         with open("ticket_cache.json", "r") as f:
-            data = json.load(f)
-            return data.get("onward", []), data.get("return", [])
+            return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        return [], []
+        return []
 
 def get_new_tickets(current_tickets, cached_tickets):
     if not cached_tickets:
@@ -117,26 +109,18 @@ def main():
 
     while True:
         # Load cached tickets
-        cached_onward_tickets, cached_return_tickets = load_ticket_cache()
-        onward_cache = []
+        cached_tickets = load_ticket_cache()
         return_cache = []
 
-        if SEARCH_ONWORD:
-            onward_tickets, onward_cache = check_tickets(TRAVEL_DATE, ONWARD_ROUTES, "Onward")
-            new_onward_tickets = get_new_tickets(onward_tickets, cached_onward_tickets)
-            if new_onward_tickets:
-                log_message(f"Found {len(new_onward_tickets)} NEW onward buses to notify about")
-                send_notification(new_onward_tickets, "Onward")
-
-        if SEARCH_RETURN:
-            return_tickets, return_cache = check_tickets(RETURN_DATE, RETURN_ROUTES, "Return")
-            new_return_tickets = get_new_tickets(return_tickets, cached_return_tickets)
-            if new_return_tickets:
-                log_message(f"Found {len(new_return_tickets)} NEW return buses to notify about")
-                send_notification(new_return_tickets, "Return")
+        # Check for return tickets
+        return_tickets, return_cache = check_tickets(RETURN_DATE, FROM_IDS, TO_ID)
+        new_return_tickets = get_new_tickets(return_tickets, cached_tickets)
+        if new_return_tickets:
+            log_message(f"Found {len(new_return_tickets)} NEW return buses to notify about")
+            send_notification(new_return_tickets, "Return")
 
         # Save updated cache
-        save_ticket_cache(onward_cache, return_cache)
+        save_ticket_cache(return_cache)
 
         log_message(f"Sleeping for {CHECK_INTERVAL_MINUTES} minutes until next check")
         log_message("======================")
