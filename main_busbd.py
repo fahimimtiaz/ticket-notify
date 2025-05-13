@@ -14,8 +14,8 @@ CHECK_INTERVAL_MINUTES = 3
 PUSHBULLET_API_KEY = os.getenv("PUSHBULLET_API_KEY")
 RETURN_DATE = os.getenv("RETURN_DATE")
 
-# Fixed toid for Dhaka
-TO_ID = 14
+# List of to_ids for destinations (example: 14 for Dhaka)
+TO_IDS = [14]
 
 # List of fromid for Rajshahi and Chapai Nawabganj
 FROM_IDS = [55, 9]  # 55 for Rajshahi, 9 for Chapai Nawabganj
@@ -31,40 +31,41 @@ def log_message(message):
     log_entry = f"[{timestamp}] {message}"
     print(log_entry)
 
-def check_tickets(travel_date, from_ids, to_id):
+def check_tickets(travel_date, from_ids, to_ids):
     log_message(f"Checking return tickets for {travel_date}...")
     found_tickets = []
     tickets_for_cache = []
 
     for from_id in from_ids:
-        log_message(f"Checking from_id: {from_id}")
-        payload = {
-            "jrdate": travel_date,
-            "fromid": from_id,
-            "toid": to_id,
-            "coach_type": None
-        }
+        for to_id in to_ids:
+            log_message(f"Checking from_id: {from_id} -> to_id: {to_id}")
+            payload = {
+                "jrdate": travel_date,
+                "fromid": from_id,
+                "toid": to_id,
+                "coach_type": None
+            }
 
-        try:
-            response = requests.post(API_URL, json=payload, headers={"Content-Type": "application/json"})
-            response.raise_for_status()
-            data = response.json()
+            try:
+                response = requests.post(API_URL, json=payload, headers={"Content-Type": "application/json"})
+                response.raise_for_status()
+                data = response.json()
 
-            if data.get("data") and data["data"].get("coaches"):
-                for coach in data["data"]["coaches"]:
-                    company_name = coach.get("company_name", "")
-                    coach_no = coach.get("coach_no", "")
-                    if company_name in TARGET_COMPANIES:
-                        found_tickets.append({
-                            "company": company_name,
-                            "coach_no": coach_no,
-                            "route": f"{coach.get('route_name', '')}",
-                            "journey_type": "Return"
-                        })
-                        tickets_for_cache.append({"coach_no": coach_no})
+                if data.get("data") and data["data"].get("coaches"):
+                    for coach in data["data"]["coaches"]:
+                        company_name = coach.get("company_name", "")
+                        coach_no = coach.get("coach_no", "")
+                        if company_name in TARGET_COMPANIES:
+                            found_tickets.append({
+                                "company": company_name,
+                                "coach_no": coach_no,
+                                "route": f"{coach.get('route_name', '')}",
+                                "journey_type": "Return"
+                            })
+                            tickets_for_cache.append({"coach_no": coach_no})
 
-        except Exception as e:
-            log_message(f"Error checking from_id {from_id}: {str(e)}")
+            except Exception as e:
+                log_message(f"Error checking from_id {from_id} to_id {to_id}: {str(e)}")
 
     return found_tickets, tickets_for_cache
 
