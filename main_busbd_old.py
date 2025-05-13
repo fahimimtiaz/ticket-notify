@@ -12,21 +12,16 @@ load_dotenv()
 API_URL = "https://api.busbd.com.bd/api/v2/searchlist"
 CHECK_INTERVAL_MINUTES = 3
 PUSHBULLET_API_KEY = os.getenv("PUSHBULLET_API_KEY")
-TRAVEL_DATE = os.getenv("TRAVEL_DATE")
 RETURN_DATE = os.getenv("RETURN_DATE")
-SEARCH_ONWORD = os.getenv("SEARCH_ONWORD", "False").lower() == "true"
-SEARCH_RETURN = os.getenv("SEARCH_RETURN", "False").lower() == "true"
 
-# Bus stop IDs
-DHAKA_ID = 14
-RAJSHAHI_ID = 55
-CHAPAI_ID = 9
+# List of to_ids for destinations (example: 14 for Dhaka)
+TO_IDS = [14]
+
+# List of fromid for Rajshahi and Chapai Nawabganj
+FROM_IDS = [55, 9]  # 55 for Rajshahi, 9 for Chapai Nawabganj
 
 # Target companies
-TARGET_COMPANIES = [
-    "National Travels", "Desh Travels", "Grameen Travels",
-    "KTC Hanif", "Hanif Enterprise", "Shyamoli N.R Travels"
-]
+TARGET_COMPANIES = ["National Travels", "Desh Travels", "Grameen Travels", "KTC Hanif", "Hanif Enterprise", "Shyamoli N.R Travels"]
 
 # Initialize Pushbullet
 pb = Pushbullet(PUSHBULLET_API_KEY)
@@ -36,8 +31,8 @@ def log_message(message):
     log_entry = f"[{timestamp}] {message}"
     print(log_entry)
 
-def check_tickets(travel_date, from_ids, to_ids, journey_type):
-    log_message(f"Checking {journey_type.lower()} tickets for {travel_date}...")
+def check_tickets(travel_date, from_ids, to_ids):
+    log_message(f"Checking return tickets for {travel_date}...")
     found_tickets = []
     tickets_for_cache = []
 
@@ -65,7 +60,7 @@ def check_tickets(travel_date, from_ids, to_ids, journey_type):
                                 "company": company_name,
                                 "coach_no": coach_no,
                                 "route": f"{coach.get('route_name', '')}",
-                                "journey_type": journey_type
+                                "journey_type": "Return"
                             })
                             tickets_for_cache.append({"coach_no": coach_no})
 
@@ -114,35 +109,19 @@ def main():
     log_message("Bus ticket monitor started")
 
     while True:
+        # Load cached tickets
         cached_tickets = load_ticket_cache()
-        all_new_tickets = []
-        updated_cache = []
+        return_cache = []
 
-        if SEARCH_ONWORD:
-            from_ids = [DHAKA_ID]
-            to_ids = [RAJSHAHI_ID, CHAPAI_ID]
-            onward_tickets, onward_cache = check_tickets(TRAVEL_DATE, from_ids, to_ids, "Onward")
-            new_onward = get_new_tickets(onward_tickets, cached_tickets)
-            if new_onward:
-                log_message(f"Found {len(new_onward)} NEW onward buses to notify about")
-                send_notification(new_onward, "Onward")
-                all_new_tickets.extend(new_onward)
-                updated_cache.extend(onward_cache)
-
-        if SEARCH_RETURN:
-            from_ids = [RAJSHAHI_ID, CHAPAI_ID]
-            to_ids = [DHAKA_ID]
-            return_tickets, return_cache = check_tickets(RETURN_DATE, from_ids, to_ids, "Return")
-            new_return = get_new_tickets(return_tickets, cached_tickets)
-            if new_return:
-                log_message(f"Found {len(new_return)} NEW return buses to notify about")
-                send_notification(new_return, "Return")
-                all_new_tickets.extend(new_return)
-                updated_cache.extend(return_cache)
+        # Check for return tickets
+        return_tickets, return_cache = check_tickets(RETURN_DATE, FROM_IDS, TO_ID)
+        new_return_tickets = get_new_tickets(return_tickets, cached_tickets)
+        if new_return_tickets:
+            log_message(f"Found {len(new_return_tickets)} NEW return buses to notify about")
+            send_notification(new_return_tickets, "Return")
 
         # Save updated cache
-        if all_new_tickets:
-            save_ticket_cache(updated_cache)
+        save_ticket_cache(return_cache)
 
         log_message(f"Sleeping for {CHECK_INTERVAL_MINUTES} minutes until next check")
         log_message("======================")
