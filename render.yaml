@@ -16,7 +16,7 @@ services:
       - key: SEARCH_ONWORD
         value: "True"
       - key: SEARCH_RETURN
-        value: "True"
+        value: "False"
       - key: CHECK_INTERVAL_MINUTES
         value: "3"
 
