@@ -8,10 +8,10 @@ services:
       - key: PUSHBULLET_API_KEY
         sync: false
       - key: TRAVEL_DATE
-        value: "2026-04-15"
+        value: "2026-03-05"
         sync: false
       - key: RETURN_DATE
-        value: "2026-04-20"
+        value: "2026-03-28"
         sync: false
       - key: SEARCH_ONWORD
         value: "True"
