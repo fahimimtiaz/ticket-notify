@@ -10,7 +10,7 @@ load_dotenv()
 
 # Configure from environment variables
 API_URL = "https://api.busbd.com.bd/api/v2/searchlist"
-CHECK_INTERVAL_MINUTES = 3
+CHECK_INTERVAL_MINUTES = int(os.getenv("CHECK_INTERVAL_MINUTES", "3"))
 PUSHBULLET_API_KEY = os.getenv("PUSHBULLET_API_KEY")
 TRAVEL_DATE = os.getenv("TRAVEL_DATE")
 RETURN_DATE = os.getenv("RETURN_DATE")
