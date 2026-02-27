@@ -1,3 +1,4 @@
-requests
-pushbullet.py
-python-dotenv
+requests==2.31.0
+pushbullet.py==0.12.0
+python-dotenv==1.0.0
+
