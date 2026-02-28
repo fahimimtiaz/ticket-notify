@@ -30,7 +30,8 @@ CHAPAI_ID = 9
 # Target companies (same for both sources)
 TARGET_COMPANIES = [
     "National Travels", "Desh Travels", "Grameen Travels",
-    "KTC Hanif", "Hanif Enterprise", "Shyamoli N.R Travels"
+    "KTC Hanif", "Hanif Enterprise", "Shyamoli N.R Travels",
+    "Shyamoli NR Travels"
 ]
 
 # Initialize Pushbullet
