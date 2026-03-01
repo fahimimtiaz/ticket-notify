@@ -147,17 +147,38 @@ def send_notification(tickets, journey_type, source):
 def load_cache(cache_file):
     try:
         with open(cache_file, "r") as f:
-            return json.load(f)
+            cache = json.load(f)
+            # Ensure all required fields exist
+            if "search_params" not in cache:
+                cache["search_params"] = {}
+            if "onward" not in cache:
+                cache["onward"] = []
+            if "return" not in cache:
+                cache["return"] = []
+            return cache
     except (FileNotFoundError, json.JSONDecodeError):
-        return {"onward": [], "return": []}
+        return {
+            "search_params": {},
+            "onward": [],
+            "return": []
+        }
 
-def save_cache(cache_file, onward_tickets, return_tickets):
+def save_cache(cache_file, onward_tickets, return_tickets, search_params=None):
     cache_data = {
         "onward": onward_tickets,
         "return": return_tickets
     }
+
+    # Preserve or update search parameters
+    if search_params is not None:
+        cache_data["search_params"] = search_params
+    else:
+        # Try to load existing search params
+        existing_cache = load_cache(cache_file)
+        cache_data["search_params"] = existing_cache.get("search_params", {})
+
     with open(cache_file, "w") as f:
-        json.dump(cache_data, f)
+        json.dump(cache_data, f, indent=2)
 
 def has_new_tickets(current_tickets, cached_tickets):
     current_coach_nos = set(ticket["coach_no"] for ticket in current_tickets)
@@ -184,19 +205,32 @@ def health():
 @app.route('/check', methods=['POST'])
 def check_tickets():
     try:
-        # Get payload data
-        data = request.get_json()
+        # Load cache first to get cached search params
+        cache = load_cache("ticket_cache_api.json")
+        cached_search_params = cache.get("search_params", {})
 
-        if not data:
-            return jsonify({"status": "error", "message": "No JSON payload provided"}), 400
+        # Get payload data (can be empty to use cached params)
+        data = request.get_json() or {}
 
-        travel_date = data.get('TRAVEL_DATE')
-        return_date = data.get('RETURN_DATE')
-        search_onward = data.get('SEARCH_ONWARD', True)
-        search_return = data.get('SEARCH_RETURN', False)
+        # Use provided params or fall back to cached params
+        travel_date = data.get('TRAVEL_DATE') or cached_search_params.get('TRAVEL_DATE')
+        return_date = data.get('RETURN_DATE') or cached_search_params.get('RETURN_DATE')
+        search_onward = data.get('SEARCH_ONWARD', cached_search_params.get('SEARCH_ONWARD', True))
+        search_return = data.get('SEARCH_RETURN', cached_search_params.get('SEARCH_RETURN', False))
 
         if not travel_date:
-            return jsonify({"status": "error", "message": "TRAVEL_DATE is required"}), 400
+            return jsonify({
+                "status": "error",
+                "message": "TRAVEL_DATE is required (either in payload or cached)"
+            }), 400
+
+        # Save current search params for future use
+        current_search_params = {
+            'TRAVEL_DATE': travel_date,
+            'RETURN_DATE': return_date,
+            'SEARCH_ONWARD': search_onward,
+            'SEARCH_RETURN': search_return
+        }
 
         log_message("="*50)
         log_message(f"Starting ticket check")
@@ -205,8 +239,7 @@ def check_tickets():
         log_message(f"Search Onward: {search_onward}")
         log_message(f"Search Return: {search_return}")
 
-        # Load cache
-        cache = load_cache("ticket_cache_api.json")
+        # Get cached tickets
         cached_onward = cache.get("onward", [])
         cached_return = cache.get("return", [])
 
@@ -271,8 +304,8 @@ def check_tickets():
                 send_notification(busbd_return, "Return", "BusBD")
                 updated_return_cache.extend(busbd_return_cache)
 
-        # Save updated cache
-        save_cache("ticket_cache_api.json", updated_onward_cache, updated_return_cache)
+        # Save updated cache with search params
+        save_cache("ticket_cache_api.json", updated_onward_cache, updated_return_cache, current_search_params)
 
         log_message("="*50)
         log_message(f"Check completed successfully")
@@ -280,6 +313,7 @@ def check_tickets():
         return jsonify({
             "status": "success",
             "message": "Ticket check completed",
+            "search_params": current_search_params,
             "timestamp": datetime.now().isoformat()
         }), 200
 
