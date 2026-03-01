@@ -193,6 +193,7 @@ def home():
         "message": "Ticket Monitor API is running",
         "endpoints": {
             "/check": "POST - Check for tickets",
+            "/clear-cache": "POST - Clear all cached tickets and search params",
             "/health": "GET - Health check"
         }
     })
@@ -200,6 +201,28 @@ def home():
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
+
+@app.route('/clear-cache', methods=['POST'])
+def clear_cache():
+    try:
+        cache = {
+            "search_params": {},
+            "tickets_by_date": {}
+        }
+        save_cache("ticket_cache_api.json", cache)
+        log_message("Cache cleared successfully")
+        return jsonify({
+            "status": "success",
+            "message": "Cache cleared successfully",
+            "timestamp": datetime.now().isoformat()
+        }), 200
+    except Exception as e:
+        log_message(f"Error clearing cache: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "timestamp": datetime.now().isoformat()
+        }), 500
 
 @app.route('/check', methods=['POST'])
 def check_tickets():
