@@ -56,7 +56,7 @@ Pushbullet
      - **Name**: `ticket-monitor-api`
      - **Environment**: `Python 3`
      - **Build Command**: `pip install -r requirements.txt`
-     - **Start Command**: `gunicorn app:app`
+     - **Start Command**: `gunicorn app:app --bind 0.0.0.0:$PORT`
      - **Plan**: `Free`
 
 3. **Add Environment Variables**
@@ -114,7 +114,7 @@ python app.py
 curl http://localhost:5000/health
 ```
 
-**Check Tickets:**
+**Check Tickets (Initial Request with Parameters):**
 ```bash
 curl -X POST http://localhost:5000/check \
   -H "Content-Type: application/json" \
@@ -125,6 +125,15 @@ curl -X POST http://localhost:5000/check \
     "SEARCH_RETURN": false
   }'
 ```
+
+**Check Tickets (Subsequent Requests - Uses Cached Parameters):**
+```bash
+curl -X POST http://localhost:5000/check \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+> 💡 **Smart Caching**: The API caches your search parameters! After the first request, you can send an empty payload `{}` and it will use the cached parameters. This is perfect for cron jobs!
 
 ### Test on Render
 Replace `localhost:5000` with your Render URL:
@@ -152,7 +161,7 @@ curl -X POST https://ticket-monitor-api.onrender.com/check \
    - **Title**: Ticket Monitor
    - **URL**: `https://ticket-monitor-api.onrender.com/check`
    - **Request Method**: `POST`
-   - **Request Body**:
+   - **Request Body** (Option 1 - First time setup):
      ```json
      {
        "TRAVEL_DATE": "2026-03-08",
@@ -161,12 +170,18 @@ curl -X POST https://ticket-monitor-api.onrender.com/check \
        "SEARCH_RETURN": false
      }
      ```
+   - **Request Body** (Option 2 - After initial setup, use cached params):
+     ```json
+     {}
+     ```
    - **Headers**: 
      - `Content-Type: application/json`
    - **Schedule**: Every 3 minutes (or as needed)
    - **Execution schedule**: `*/3 * * * *` (every 3 minutes)
 
 3. **Save and Enable** the cron job
+
+> 💡 **Tip**: Use Option 1 for the first run to set parameters, then switch to Option 2 `{}` for all subsequent runs. To change parameters, just send a new request with updated values.
 
 ### Option B: EasyCron
 
@@ -250,6 +265,20 @@ Then add to Render env vars and cron job headers:
 ---
 
 ## Troubleshooting
+
+### Issue: ModuleNotFoundError: No module named 'your_application'
+This happens when Render's auto-detected start command conflicts with your configuration.
+
+**Solution:**
+1. In Render dashboard, go to your service settings
+2. **Clear any existing "Start Command"** in the dashboard (leave it blank or ensure it says `gunicorn app:app --bind 0.0.0.0:$PORT`)
+3. If using `render_api.yaml`, ensure it has:
+   ```yaml
+   startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+   ```
+4. Redeploy the service
+
+**Alternative:** Delete the service and recreate it, ensuring no conflicting commands are set.
 
 ### Issue: API returns 500 error
 - Check Render logs for detailed error messages

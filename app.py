@@ -258,8 +258,10 @@ def check_tickets():
             # Check for new BDTickets tickets and notify
             if bdtickets_onward and has_new_tickets(bdtickets_onward_cache, cached_onward):
                 log_message(f"Found {len(bdtickets_onward)} NEW onward buses from BDTickets", "BDTickets")
-                send_notification(bdtickets_onward, "Onward", "BDTickets")
-                updated_onward_cache.extend(bdtickets_onward_cache)
+                if send_notification(bdtickets_onward, "Onward", "BDTickets"):
+                    updated_onward_cache.extend(bdtickets_onward_cache)
+                else:
+                    log_message("Notification failed, not caching tickets", "BDTickets")
 
             # Check BusBD
             busbd_onward, busbd_onward_cache = check_busbd(
@@ -272,8 +274,10 @@ def check_tickets():
             # Check for new BusBD tickets and notify
             if busbd_onward and has_new_tickets(busbd_onward_cache, cached_onward):
                 log_message(f"Found {len(busbd_onward)} NEW onward buses from BusBD", "BusBD")
-                send_notification(busbd_onward, "Onward", "BusBD")
-                updated_onward_cache.extend(busbd_onward_cache)
+                if send_notification(busbd_onward, "Onward", "BusBD"):
+                    updated_onward_cache.extend(busbd_onward_cache)
+                else:
+                    log_message("Notification failed, not caching tickets", "BusBD")
 
         # Check return tickets
         if search_return and return_date:
@@ -287,8 +291,10 @@ def check_tickets():
             # Check for new BDTickets tickets and notify
             if bdtickets_return and has_new_tickets(bdtickets_return_cache, cached_return):
                 log_message(f"Found {len(bdtickets_return)} NEW return buses from BDTickets", "BDTickets")
-                send_notification(bdtickets_return, "Return", "BDTickets")
-                updated_return_cache.extend(bdtickets_return_cache)
+                if send_notification(bdtickets_return, "Return", "BDTickets"):
+                    updated_return_cache.extend(bdtickets_return_cache)
+                else:
+                    log_message("Notification failed, not caching tickets", "BDTickets")
 
             # Check BusBD
             busbd_return, busbd_return_cache = check_busbd(
@@ -301,8 +307,10 @@ def check_tickets():
             # Check for new BusBD tickets and notify
             if busbd_return and has_new_tickets(busbd_return_cache, cached_return):
                 log_message(f"Found {len(busbd_return)} NEW return buses from BusBD", "BusBD")
-                send_notification(busbd_return, "Return", "BusBD")
-                updated_return_cache.extend(busbd_return_cache)
+                if send_notification(busbd_return, "Return", "BusBD"):
+                    updated_return_cache.extend(busbd_return_cache)
+                else:
+                    log_message("Notification failed, not caching tickets", "BusBD")
 
         # Save updated cache with search params
         save_cache("ticket_cache_api.json", updated_onward_cache, updated_return_cache, current_search_params)
