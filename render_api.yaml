@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: ticket-monitor-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    plan: free
+    envVars:
+      - key: PUSHBULLET_API_KEY
+        sync: false
+      - key: PORT
+        value: "10000"
+

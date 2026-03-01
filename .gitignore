@@ -1,27 +1,37 @@
-# Environment variables
-.env
-.env.local
-
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-*.egg-info/
-dist/
 build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
 *.egg
 
 # Virtual Environment
-.venv
 venv/
-ENV/
+.venv/
 env/
+ENV/
 
-# Cache files - these are generated and should not be in git
-ticket_cache.json
-ticket_cache_busbd.json
+# Environment Variables
+.env
+.env.local
+
+# Cache Files
+ticket_cache*.json
 
 # IDE
 .vscode/
@@ -29,14 +39,11 @@ ticket_cache_busbd.json
 *.swp
 *.swo
 *~
-.project
-.pydevproject
 
 # OS
 .DS_Store
 Thumbs.db
-*.log
 
-# Old files
-main_busbd_old.py
+# Logs
+*.log
 
