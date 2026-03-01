@@ -121,7 +121,7 @@ def check_busbd(travel_date, from_ids, to_ids, journey_type):
 
 # ==================== Notification Functions ====================
 
-def send_notification(tickets, journey_type, source):
+def send_notification(tickets, journey_type, source, journey_date):
     """Send notification for tickets from a specific source"""
     if not tickets or not pb:
         return False
@@ -130,13 +130,14 @@ def send_notification(tickets, journey_type, source):
     unique_companies = set(ticket['company'] for ticket in tickets)
 
     title = f"🚌 {journey_type} Bus Availability - {source}"
-    body = f"Available Buses: {len(tickets)}\n"
+    body = f"Journey Date: {journey_date}\n"
+    body += f"Available Buses: {len(tickets)}\n"
     body += f"Companies: {', '.join(unique_companies)}\n"
     body += f"Routes: {', '.join(unique_routes)}"
 
     try:
         pb.push_note(title, body)
-        log_message(f"Notification sent: {title}", source)
+        log_message(f"Notification sent: {title} for {journey_date}", source)
         return True
     except Exception as e:
         log_message(f"Failed to send notification: {str(e)}", source)
@@ -151,32 +152,30 @@ def load_cache(cache_file):
             # Ensure all required fields exist
             if "search_params" not in cache:
                 cache["search_params"] = {}
-            if "onward" not in cache:
-                cache["onward"] = []
-            if "return" not in cache:
-                cache["return"] = []
+            if "tickets_by_date" not in cache:
+                cache["tickets_by_date"] = {}
             return cache
     except (FileNotFoundError, json.JSONDecodeError):
         return {
             "search_params": {},
-            "onward": [],
-            "return": []
+            "tickets_by_date": {}
         }
 
-def save_cache(cache_file, onward_tickets, return_tickets, search_params=None):
-    cache_data = {
-        "onward": onward_tickets,
-        "return": return_tickets
-    }
+def get_cached_tickets_for_date(cache, date, journey_type):
+    """Get cached tickets for a specific date and journey type"""
+    tickets_by_date = cache.get("tickets_by_date", {})
+    date_cache = tickets_by_date.get(date, {})
+    return date_cache.get(journey_type.lower(), [])
 
-    # Preserve or update search parameters
-    if search_params is not None:
-        cache_data["search_params"] = search_params
-    else:
-        # Try to load existing search params
-        existing_cache = load_cache(cache_file)
-        cache_data["search_params"] = existing_cache.get("search_params", {})
+def save_tickets_for_date(cache, date, journey_type, tickets):
+    """Save tickets for a specific date and journey type"""
+    if "tickets_by_date" not in cache:
+        cache["tickets_by_date"] = {}
+    if date not in cache["tickets_by_date"]:
+        cache["tickets_by_date"][date] = {}
+    cache["tickets_by_date"][date][journey_type.lower()] = tickets
 
+def save_cache(cache_file, cache_data):
     with open(cache_file, "w") as f:
         json.dump(cache_data, f, indent=2)
 
@@ -239,12 +238,9 @@ def check_tickets():
         log_message(f"Search Onward: {search_onward}")
         log_message(f"Search Return: {search_return}")
 
-        # Get cached tickets
-        cached_onward = cache.get("onward", [])
-        cached_return = cache.get("return", [])
-
-        updated_onward_cache = cached_onward.copy()
-        updated_return_cache = cached_return.copy()
+        # Get cached tickets for specific dates
+        cached_onward = get_cached_tickets_for_date(cache, travel_date, "onward") if travel_date else []
+        cached_return = get_cached_tickets_for_date(cache, return_date, "return") if return_date else []
 
         # Check onward tickets
         if search_onward and travel_date:
@@ -257,9 +253,11 @@ def check_tickets():
 
             # Check for new BDTickets tickets and notify
             if bdtickets_onward and has_new_tickets(bdtickets_onward_cache, cached_onward):
-                log_message(f"Found {len(bdtickets_onward)} NEW onward buses from BDTickets", "BDTickets")
-                if send_notification(bdtickets_onward, "Onward", "BDTickets"):
-                    updated_onward_cache.extend(bdtickets_onward_cache)
+                log_message(f"Found {len(bdtickets_onward)} NEW onward buses from BDTickets for {travel_date}", "BDTickets")
+                if send_notification(bdtickets_onward, "Onward", "BDTickets", travel_date):
+                    # Merge with existing cache for this date
+                    updated_cache = cached_onward + bdtickets_onward_cache
+                    save_tickets_for_date(cache, travel_date, "onward", updated_cache)
                 else:
                     log_message("Notification failed, not caching tickets", "BDTickets")
 
@@ -273,9 +271,12 @@ def check_tickets():
 
             # Check for new BusBD tickets and notify
             if busbd_onward and has_new_tickets(busbd_onward_cache, cached_onward):
-                log_message(f"Found {len(busbd_onward)} NEW onward buses from BusBD", "BusBD")
-                if send_notification(busbd_onward, "Onward", "BusBD"):
-                    updated_onward_cache.extend(busbd_onward_cache)
+                log_message(f"Found {len(busbd_onward)} NEW onward buses from BusBD for {travel_date}", "BusBD")
+                if send_notification(busbd_onward, "Onward", "BusBD", travel_date):
+                    # Merge with existing cache for this date
+                    current_cache = get_cached_tickets_for_date(cache, travel_date, "onward")
+                    updated_cache = current_cache + busbd_onward_cache
+                    save_tickets_for_date(cache, travel_date, "onward", updated_cache)
                 else:
                     log_message("Notification failed, not caching tickets", "BusBD")
 
@@ -290,9 +291,11 @@ def check_tickets():
 
             # Check for new BDTickets tickets and notify
             if bdtickets_return and has_new_tickets(bdtickets_return_cache, cached_return):
-                log_message(f"Found {len(bdtickets_return)} NEW return buses from BDTickets", "BDTickets")
-                if send_notification(bdtickets_return, "Return", "BDTickets"):
-                    updated_return_cache.extend(bdtickets_return_cache)
+                log_message(f"Found {len(bdtickets_return)} NEW return buses from BDTickets for {return_date}", "BDTickets")
+                if send_notification(bdtickets_return, "Return", "BDTickets", return_date):
+                    # Merge with existing cache for this date
+                    updated_cache = cached_return + bdtickets_return_cache
+                    save_tickets_for_date(cache, return_date, "return", updated_cache)
                 else:
                     log_message("Notification failed, not caching tickets", "BDTickets")
 
@@ -306,14 +309,18 @@ def check_tickets():
 
             # Check for new BusBD tickets and notify
             if busbd_return and has_new_tickets(busbd_return_cache, cached_return):
-                log_message(f"Found {len(busbd_return)} NEW return buses from BusBD", "BusBD")
-                if send_notification(busbd_return, "Return", "BusBD"):
-                    updated_return_cache.extend(busbd_return_cache)
+                log_message(f"Found {len(busbd_return)} NEW return buses from BusBD for {return_date}", "BusBD")
+                if send_notification(busbd_return, "Return", "BusBD", return_date):
+                    # Merge with existing cache for this date
+                    current_cache = get_cached_tickets_for_date(cache, return_date, "return")
+                    updated_cache = current_cache + busbd_return_cache
+                    save_tickets_for_date(cache, return_date, "return", updated_cache)
                 else:
                     log_message("Notification failed, not caching tickets", "BusBD")
 
-        # Save updated cache with search params
-        save_cache("ticket_cache_api.json", updated_onward_cache, updated_return_cache, current_search_params)
+        # Save search params
+        cache["search_params"] = current_search_params
+        save_cache("ticket_cache_api.json", cache)
 
         log_message("="*50)
         log_message(f"Check completed successfully")
